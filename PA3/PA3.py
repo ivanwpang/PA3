@@ -26,7 +26,7 @@ def schedule_RM(system_parameters, tasks):
     schedule = []
     total_energy = 0.0
     current_time = 0
-    cpu_freq = 1188
+    cpu_freqs = [1188, 918, 648, 384] # Given Frequencies 
 
     # Scheduling each task
     for task in sorted_tasks:
@@ -37,7 +37,7 @@ def schedule_RM(system_parameters, tasks):
         total_energy += task_energy
 
         # Add task to schedule
-        schedule.append((current_time, task_name, cpu_freq, wcet_values[0], task_energy))
+        schedule.append((current_time, task_name, cpu_freqs[0], wcet_values[0], task_energy))
 
         # Update current time
         current_time += wcet_values[0]
