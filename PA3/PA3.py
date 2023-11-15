@@ -20,49 +20,31 @@ def read_input_file(file_name):
 
     return system_parameters, tasks
 
-# FOR TESTING THE FUNCTION THAT READS THE FILE
-#############################################################################################################
-# class TestInputFileReading(unittest.TestCase):
-#     def test_read_input1_file(self):
-#         file_name = "input1.txt"  # The name of the provided input file
-#         system_parameters, tasks = read_input_file(file_name)
-
-#         # Expected data from the input file
-#         expected_system_parameters = (5, 1000, 625, 447, 307, 212, 84)
-#         expected_tasks = [
-#             ("w1", 520, 53, 66, 89, 141),
-#             ("w2", 220, 40, 50, 67, 114),
-#             ("w3", 500, 104, 134, 184, 313),
-#             ("w4", 200, 57, 74, 103, 175),
-#             ("w5", 300, 35, 45, 62, 104),
-#         ]
-
-#          # Perform assertions to check if the function reads the file correctly
-#         self.assertEqual(system_parameters, expected_system_parameters)
-#         self.assertEqual(len(tasks), expected_system_parameters[0])  # Check the number of tasks
-#         self.assertEqual(tasks, expected_tasks)
-############################################################################################################
-
-def schedule_RM(system_parameters, tasks): 
-    sorted_tasks = sorted(tasks, key=lambda x: x[1]) # Sort tasks based on their periods in ascending order
+def schedule_RM(system_parameters, tasks):
+    sorted_tasks = sorted(tasks, key=lambda x: x[1])  # Sort tasks based on their periods in ascending order
 
     schedule = []
     total_energy = 0.0
     current_time = 0
+    cpu_freq = 1188
 
     # Scheduling each task
     for task in sorted_tasks:
         task_name, deadline, *wcet_values = task
         wcet_values = list(map(int, wcet_values))
 
-        task_energy = calculate_energy(wcet_values, system_parameters) # Energy calculations
+        task_energy = calculate_energy(wcet_values, system_parameters)  # Energy calculations
         total_energy += task_energy
 
-        schedule.append((current_time, task_name, system_parameters[1], deadline, task_energy)) # Add tasks to schedule
+        # Add task to schedule
+        schedule.append((current_time, task_name, cpu_freq, wcet_values[0], task_energy))
 
-        current_time += wcet_values[0] # Updating time
+        # Update current time
+        current_time += wcet_values[0]
 
     return schedule, total_energy
+
+
 
 # Energy calculations might be different
 def calculate_energy(wcet_values, system_parameters):
@@ -93,3 +75,26 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# FOR TESTING THE FUNCTION THAT READS THE FILE
+#############################################################################################################
+# class TestInputFileReading(unittest.TestCase):
+#     def test_read_input1_file(self):
+#         file_name = "input1.txt"  # The name of the provided input file
+#         system_parameters, tasks = read_input_file(file_name)
+
+#         # Expected data from the input file
+#         expected_system_parameters = (5, 1000, 625, 447, 307, 212, 84)
+#         expected_tasks = [
+#             ("w1", 520, 53, 66, 89, 141),
+#             ("w2", 220, 40, 50, 67, 114),
+#             ("w3", 500, 104, 134, 184, 313),
+#             ("w4", 200, 57, 74, 103, 175),
+#             ("w5", 300, 35, 45, 62, 104),
+#         ]
+
+#          # Perform assertions to check if the function reads the file correctly
+#         self.assertEqual(system_parameters, expected_system_parameters)
+#         self.assertEqual(len(tasks), expected_system_parameters[0])  # Check the number of tasks
+#         self.assertEqual(tasks, expected_tasks)
+############################################################################################################
