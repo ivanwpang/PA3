@@ -97,13 +97,13 @@ def calcRM(taskInfo, taskList):
 			schedule.append(["IDLE", "IDLE", taskInfo[IDLE_POWER]])
 		else:
 			# Find the highest priority deadline
-			highestPriorityTask = deadlines.index(min(deadlines))
-			schedule.append([availableTasks[highestPriorityTask][TASK_NAME], availableTasks[highestPriorityTask][TASK_FREQUENCY], taskInfo[availableTasks[highestPriorityTask][TASK_ACTIVE_POWER]]])
-			availableTasks[highestPriorityTask][TASK_EXEC_TIME] = availableTasks[highestPriorityTask][TASK_EXEC_TIME] - 1
+			earliestDeadlineTask = min(availableTasks, key=lambda x: x[TASK_DEADLINE])
+			schedule.append([earliestDeadlineTask[TASK_NAME], earliestDeadlineTask[TASK_FREQUENCY], taskInfo[earliestDeadlineTask[TASK_ACTIVE_POWER]]])
+			earliestDeadlineTask[TASK_EXEC_TIME] = earliestDeadlineTask[TASK_EXEC_TIME] - 1
 		
 			# Delete tasks that are done
-			if (availableTasks[highestPriorityTask][TASK_EXEC_TIME] <= 0):
-				del availableTasks[highestPriorityTask]
+			if (earliestDeadlineTask[TASK_EXEC_TIME] <= 0):
+				availableTasks.remove(earliestDeadlineTask)
 	return scheduleAsArray(schedule)
 
 def schedule_RM(taskInfo, taskList):
@@ -113,15 +113,13 @@ def schedule_RM(taskInfo, taskList):
 	return calcRM(taskInfo, schedule)
 
 def calcEDF(taskInfo, taskList):
-    taskLen = len(taskList)
-    U = 0
+    utilization = 0
     for task in taskList:
-        U = U + task[TASK_EXEC_TIME] / task[DEADLINE]
-    if not (U <= 1):
+        utilization = utilization + task[TASK_EXEC_TIME] / task[DEADLINE]
+    if not (utilization <= 1):
         return ""
 
     schedule = []
-    
     availableTasks = []
 
     for execStartTime in range(int(taskInfo[EXECUTION_TIME])):
@@ -136,8 +134,7 @@ def calcEDF(taskInfo, taskList):
         else:
             # Find the task with the earliest deadline
             earliestDeadlineTask = min(availableTasks, key=lambda x: x[TASK_DEADLINE])
-            schedule.append([earliestDeadlineTask[TASK_NAME], earliestDeadlineTask[TASK_FREQUENCY],
-                             taskInfo[earliestDeadlineTask[TASK_ACTIVE_POWER]]])
+            schedule.append([earliestDeadlineTask[TASK_NAME], earliestDeadlineTask[TASK_FREQUENCY], taskInfo[earliestDeadlineTask[TASK_ACTIVE_POWER]]])
             earliestDeadlineTask[TASK_EXEC_TIME] = earliestDeadlineTask[TASK_EXEC_TIME] - 1
 
             # Remove tasks that are done
