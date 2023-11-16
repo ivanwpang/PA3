@@ -1,100 +1,207 @@
+import sys
 import unittest
 
-def read_input_file(file_name):
-    system_parameters = ()
-    tasks = []
+# First line of input file
+NUMBER_OF_TASKS = 0
+EXECUTION_TIME = 1
+CPU_POWER_1188 = 2
+CPU_POWER_918 = 3
+CPU_POWER_648 = 4
+CPU_POWER_384 = 5
+IDLE_POWER = 6
+# Lines after first line of input file
+NAME_OF_TASK = 0
+DEADLINE = 1
+WCET_1188 = 2
+WCET_918 = 3
+WCET_648 = 4
+WCET_384 = 5
+# For each individual line after the first line
+TASK_NAME = 0
+TASK_DEADLINE = 1
+TASK_EXEC_TIME = 2
+TASK_ACTIVE_POWER = 3
+TASK_FREQUENCY = 4
 
-    with open(file_name, 'r') as file:
-        lines = file.readlines() # Read lines from input file
+def openFile(filePath):
+	with open(filePath, 'r') as inFile:
+		lines = inFile.readlines() # Read lines from input file
+		taskInfo = lines[0].split() # Extract first line
+		taskList = [line.split() for line in lines[1:]] # Extract remaining lines after first line
+            
+		for task in taskList:
+			task[DEADLINE] = int(task[DEADLINE])
+			task[WCET_1188] = int(task[WCET_1188])
+			task[WCET_918] = int(task[WCET_918])
+			task[WCET_648] = int(task[WCET_648])
+			task[WCET_384] = int(task[WCET_384])
 
-        # Extract first line or system parameters
-        system_params = lines[0].split()
-        system_parameters = tuple(map(int, system_params))
+	return (taskInfo, taskList)
 
-        # Extract lines after the first line
-        for line in lines[1:]:
-            task_data = line.split()
-            task_name = task_data[0]
-            task_params = list(map(int, task_data[1:]))
-            tasks.append((task_name, *task_params))
+def calcEnergy(powerConsumed, timeRunning):
+    result = ((float(powerConsumed) / 1000.0) * float(timeRunning))
+    return round(result, 3)
 
-    return system_parameters, tasks
+def scheduleAsArray(schedule):
+	scheduleArray = []
+	scheduleArray.append(schedule[0]) # Starting the array at 0
+	executionTimes = [0]
+	totalEnergy = 0
+	idleTime = 0
+	result = ""
 
-def schedule_RM(system_parameters, tasks):
-    sorted_tasks = sorted(tasks, key=lambda x: x[1])  # Sort tasks based on their periods in ascending order
+	for line in schedule: # Iterating through every line in schedule
+		if (scheduleArray[-1] == line): # Checking if the last line is the same as the current line
+			executionTimes[-1] = executionTimes[-1] + 1 # If same add to execution time
+		# If different append to end and increase its execution time
+		else: 
+			scheduleArray.append(line)
+			executionTimes.append(1)
+		# Calculate the IDLE time	
+		if (line[0] == "IDLE"):
+			idleTime = idleTime + 1
+			
+	count = 1
+	for i in range(len(scheduleArray)):
+		energy = calcEnergy(scheduleArray[i][2], executionTimes[i])
+		totalEnergy += energy
+		totalEnergy = round(totalEnergy, 3)
+		result += f"{count} {scheduleArray[i][0]} {scheduleArray[i][1]} {executionTimes[i]} {energy}J\n"
+		count += executionTimes[i]
+	
+	result += f"Total energy consuption during the execution: {totalEnergy}J\n"
+	result += f"Percentage of time spent idle: {round((idleTime / len(schedule))*100.0, 2)}%\n"
+	result += f"Total system execution time: {len(schedule) - idleTime}s\n"
+	return result
+
+def calcRM(taskInfo, taskList):
+	taskLen = len(taskList)
+	utilization = 0
+	for task in taskList:
+		utilization += task[TASK_EXEC_TIME]/task[DEADLINE]
+	if not (utilization <= taskLen * (2 ** (1/taskLen)-1)):
+		return ""
+
+	availableTasks = []
+	schedule = []
+    
+	for execStartTime in range(int(taskInfo[EXECUTION_TIME])):
+		# Create a list of tasks that are available to be executed at this time based on their deadlines
+		for task in taskList:
+			if execStartTime == task[TASK_DEADLINE] * (execStartTime // task[TASK_DEADLINE]): # // = division rounded down or is equal to. For example 7 // 3 = 2
+				availableTasks.append(task.copy())
+		# Find the deadlines
+		deadlines = [(task[TASK_DEADLINE]) for task in availableTasks]
+		if (deadlines == []):
+		# If deadline is empty, then nothing is ran aka IDLE
+			schedule.append(["IDLE", "IDLE", taskInfo[IDLE_POWER]])
+		else:
+			# Find the highest priority deadline
+			highestPriorityTask = deadlines.index(min(deadlines))
+			schedule.append([availableTasks[highestPriorityTask][TASK_NAME], availableTasks[highestPriorityTask][TASK_FREQUENCY], taskInfo[availableTasks[highestPriorityTask][TASK_ACTIVE_POWER]]])
+			availableTasks[highestPriorityTask][TASK_EXEC_TIME] = availableTasks[highestPriorityTask][TASK_EXEC_TIME] - 1
+		
+			# Delete tasks that are done
+			if (availableTasks[highestPriorityTask][TASK_EXEC_TIME] <= 0):
+				del availableTasks[highestPriorityTask]
+	return scheduleAsArray(schedule)
+
+def schedule_RM(taskInfo, taskList):
+	schedule = []
+	for task in taskList:
+		schedule.append([task[NAME_OF_TASK], task[DEADLINE], task[WCET_1188], CPU_POWER_1188, "1188"])
+	return calcRM(taskInfo, schedule)
+
+def calcEDF(taskInfo, taskList):
+    taskLen = len(taskList)
+    U = 0
+    for task in taskList:
+        U = U + task[TASK_EXEC_TIME] / task[DEADLINE]
+    if not (U <= 1):
+        return ""
 
     schedule = []
-    total_energy = 0.0
-    current_time = 0
-    cpu_freqs = [1188, 918, 648, 384] # Given Frequencies 
+    
+    availableTasks = []
 
-    # Scheduling each task
-    for task in sorted_tasks:
-        task_name, deadline, *wcet_values = task
-        wcet_values = list(map(int, wcet_values))
+    for execStartTime in range(int(taskInfo[EXECUTION_TIME])):
+        # Create a list of tasks that are available to be executed at this time based on their deadlines
+        for task in taskList:
+            if execStartTime == task[TASK_DEADLINE] * (execStartTime // task[TASK_DEADLINE]):   
+                availableTasks.append(task.copy())
+                
+        if not availableTasks:
+            # If no tasks are available, then nothing is ran aka IDLE
+            schedule.append(["IDLE", "IDLE", taskInfo[IDLE_POWER]])
+        else:
+            # Find the task with the earliest deadline
+            earliestDeadlineTask = min(availableTasks, key=lambda x: x[TASK_DEADLINE])
+            schedule.append([earliestDeadlineTask[TASK_NAME], earliestDeadlineTask[TASK_FREQUENCY],
+                             taskInfo[earliestDeadlineTask[TASK_ACTIVE_POWER]]])
+            earliestDeadlineTask[TASK_EXEC_TIME] = earliestDeadlineTask[TASK_EXEC_TIME] - 1
 
-        task_energy = calculate_energy(wcet_values, system_parameters)  # Energy calculations
-        total_energy += task_energy
+            # Remove tasks that are done
+            if earliestDeadlineTask[TASK_EXEC_TIME] <= 0:
+                availableTasks.remove(earliestDeadlineTask)
 
-        # Add task to schedule
-        schedule.append((current_time, task_name, cpu_freqs[0], wcet_values[0], task_energy))
+    return scheduleAsArray(schedule)
 
-        # Update current time
-        current_time += wcet_values[0]
-
-    return schedule, total_energy
-
-
-
-# Energy calculations might be different
-def calculate_energy(wcet_values, system_parameters):
-    power_consumption = system_parameters[2]
-    time_running = wcet_values[0] / system_parameters[2]
-    energy_consumed = power_consumption * time_running
-
-    return energy_consumed
-
-
-def format_and_write_schedule(schedule, output_file):
-    with open(output_file, 'w') as f:
-        for entry in schedule:
-            time_started, task_name, cpu_frequency, duration, energy_consumed = entry
-            line = f"{time_started} {task_name} {cpu_frequency} {duration} {energy_consumed:.3f}J\n"
-            f.write(line)
-
-def main():
-    file_name = "input1.txt"
-    system_parameters, tasks = read_input_file(file_name) # Reading input file
-
-    rm_schedule, total_energy_rm = schedule_RM(system_parameters, tasks) # Running RM Schedule
-
-    output_file = "rm_schedule_output.txt" # Output file name
-    format_and_write_schedule(rm_schedule, output_file) # Write to output file
-
-    print(f"Total Energy Consumption (RM): {total_energy_rm:.3f}J")
+def schedule_EDF(taskInfo, taskList):
+    schedule = []
+    for task in taskList:
+        schedule.append([task[NAME_OF_TASK], task[DEADLINE], task[WCET_1188], CPU_POWER_1188, "1188"])
+    return calcEDF(taskInfo, schedule)
 
 if __name__ == "__main__":
-    main()
+	(taskInfo, taskList) = openFile(sys.argv[1])
+	outputFile = sys.argv[1].split('.')[0]
+	
+	if ("RM" in sys.argv and "EE" in sys.argv):
+		output = schedule_RM_EE(taskInfo, taskList)
+		outputFile += "output_RM_EE"
+	elif ("EDF" in sys.argv and "EE" in sys.argv):
+		output = schedule_EDF_EE(taskInfo, taskList)
+		outputFile += "output_EDF_EE"
+	elif ("RM" in sys.argv):
+		output = schedule_RM(taskInfo, taskList)
+		outputFile += "output_RM"
+	elif ("EDF" in sys.argv):
+		output = schedule_EDF(taskInfo, taskList)
+		outputFile += "output_EDF"
+	else:
+		print("The command lines should be in this format: your_program <input_file_name> <EDF or RM> [EE] \n")
+		exit()
+		
+	with open(outputFile + ".txt", 'w') as outFile:
+		if (output == ""):
+			outFile.write("The specified schedule does not work with the given input")
+		else:
+			outFile.write(output)
 
-# FOR TESTING THE FUNCTION THAT READS THE FILE
-#############################################################################################################
-# class TestInputFileReading(unittest.TestCase):
-#     def test_read_input1_file(self):
-#         file_name = "input1.txt"  # The name of the provided input file
-#         system_parameters, tasks = read_input_file(file_name)
+# For testing func to read the input1 file
+#####################################################################################################################################################################
+# class TestOpenFileFunction(unittest.TestCase):
 
-#         # Expected data from the input file
-#         expected_system_parameters = (5, 1000, 625, 447, 307, 212, 84)
-#         expected_tasks = [
-#             ("w1", 520, 53, 66, 89, 141),
-#             ("w2", 220, 40, 50, 67, 114),
-#             ("w3", 500, 104, 134, 184, 313),
-#             ("w4", 200, 57, 74, 103, 175),
-#             ("w5", 300, 35, 45, 62, 104),
-#         ]
+#     def test_openFile(self):
+#         # Provide a sample input file content as a string
+#         input_content = "5 1000 625 447 307 212 84\nw1 520 53 66 89 141\nw2 220 40 50 67 114\nw3 500 104 134 184 313\nw4 200 57 74 103 175\nw5 300 35 45 62 104"
 
-#          # Perform assertions to check if the function reads the file correctly
-#         self.assertEqual(system_parameters, expected_system_parameters)
-#         self.assertEqual(len(tasks), expected_system_parameters[0])  # Check the number of tasks
-#         self.assertEqual(tasks, expected_tasks)
-############################################################################################################
+#         # Write the input content to a temporary file
+#         with open("input1.txt", "w") as test_file:
+#             test_file.write(input_content)
+
+#         # Call the function to be tested
+#         taskInfo, taskList = openFile("input1.txt")
+
+#         # Perform assertions to check if the function works as expected
+#         self.assertEqual(taskInfo, ['5', '1000', '625', '447', '307', '212', '84'])
+#         self.assertEqual(len(taskList), 5)
+#         self.assertEqual(taskList[0][NAME_OF_TASK], 'w1')
+#         self.assertEqual(taskList[0][DEADLINE], 520)
+#         self.assertEqual(taskList[0][WCET_1188MHz], 53)
+#         # Add similar assertions for other tasks and attributes
+
+
+# if __name__ == '__main__':
+#     unittest.main()
+#####################################################################################################################################################################
