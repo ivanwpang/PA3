@@ -1,7 +1,7 @@
 # COMPE 571 - SDSU - FALL 2023 - Programming Assignment 3
 A repo to hold scheduling algorithms in Python.
 ## To run the program:
-1. Change directory into the PA3 folder with:
+1. Change the directory into the PA3 folder with:
 ``````
 cd PA3.py
 ``````
@@ -9,7 +9,7 @@ cd PA3.py
 ``````
 3. your_program.py input.txt <RM or EDF> EE
 ``````
-Example
+Example:
 ``````
 python PA3.py  input2.txt RM 
 ``````
