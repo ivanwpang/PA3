@@ -1,54 +1,52 @@
 import sys
 import unittest
 
-# First line of input file
-NUMBER_OF_TASKS = 0
-EXECUTION_TIME = 1
+#first row
+SYSTEMTIME = 1
 CPU_POWER_1188 = 2
-CPU_POWER_918 = 3
-CPU_POWER_648 = 4
-CPU_POWER_384 = 5
-IDLE_POWER = 6
-# Lines after first line of input file
-NAME_OF_TASK = 0
+# CPU_POWER_918 = 3
+# CPU_POWER_648 = 4
+# CPU_POWER_384 = 5
+IDLE = 6
+#other rows
+TASKNAME = 0
 DEADLINE = 1
-WCET_1188 = 2
-WCET_918 = 3
-WCET_648 = 4
-WCET_384 = 5
-# For each individual line after the first line
-TASK_NAME = 0
-TASK_DEADLINE = 1
-TASK_EXEC_TIME = 2
-TASK_ACTIVE_POWER = 3
-TASK_FREQUENCY = 4
+INDEX_WCET1188 = 2
+INDEX_WCET918 = 3
+INDEX_WCET648 = 4
+INDEX_WCET384 = 5
+#scheduler format, [taskname, deadline, wcet, cpu power]
+#[['w1', 520, 53, 2, '1188'], ['w2', 320, 40, 2, '1188'], ['w3', 500, 104, 2, '1188'], ['w4', 450, 57, 2, '1188'], ['w5', 300, 35, 2, '1188']]
+RUNTIME = 2
+CPU_POWER = 3
+FREQ = 4
 
-CPU_FREQ = ["", "", "1188", "918", "648", "384"] # Empty strings in the first two for alignment 
+CPU_FREQ = ["", "", "1188", "918", "648", "384"] # First two empty for alignment
 
-def accessFile(filePath):
+def read_file(filePath):
     with open(filePath, 'r') as inFile:
         lines = inFile.readlines() # Read lines from input file
-        taskInfo = lines[0].split() # Extract first line
-        taskList = [line.split() for line in lines[1:]] # Extract remaining lines after first line
+        task_info = lines[0].split() # Extract first line
+        tasks = [line.split() for line in lines[1:]] # Extract remaining lines after first line
             
-        for task in taskList:
+        for task in tasks:
             task[DEADLINE] = int(task[DEADLINE])
-            task[WCET_1188] = int(task[WCET_1188])
-            task[WCET_918] = int(task[WCET_918])
-            task[WCET_648] = int(task[WCET_648])
-            task[WCET_384] = int(task[WCET_384])
+            task[INDEX_WCET1188] = int(task[INDEX_WCET1188])
+            task[INDEX_WCET918] = int(task[INDEX_WCET918])
+            task[INDEX_WCET648] = int(task[INDEX_WCET648])
+            task[INDEX_WCET384] = int(task[INDEX_WCET384])
 
-    return (taskInfo, taskList)
+    return (task_info, tasks)
 
-def schedule(taskInfo, taskList, scheduler):
+def schedule(task_info, tasks, scheduler):
     schedule = []
-    for task in taskList:
-        schedule.append([task[NAME_OF_TASK], task[DEADLINE], task[WCET_1188], CPU_POWER_1188, "1188"])
+    for task in tasks:
+        schedule.append([task[TASKNAME], task[DEADLINE], task[INDEX_WCET1188], CPU_POWER_1188, "1188"])
     
     if scheduler == "RM":
-        return calcRM(taskInfo, schedule)
+        return calcRM(task_info, schedule)
     elif scheduler == "EDF":
-        return calcEDF(taskInfo, schedule)
+        return calcEDF(task_info, schedule)
     else:
         print("Invalid scheduler choice.")
         return ""
@@ -89,175 +87,133 @@ def scheduleAsArray(schedule):
     result += f"Total system execution time: {len(schedule) - idleTime}s\n"
     return result
 
-def calcRM(taskInfo, taskList):
-    taskLen = len(taskList)
+def calcRM(task_info, tasks):
+    #print(tasks)
+    n = len(tasks)
     utilization = 0
-    for task in taskList:
-        utilization += task[TASK_EXEC_TIME]/task[DEADLINE]
-    if (utilization >= taskLen * (2 ** (1/taskLen) - 1)):
+    for task in tasks:
+        utilization += task[RUNTIME]/task[DEADLINE]
+    if (utilization >= n * (2 ** (1/n) - 1)):
         return ""
 
     availableTasks = []
     schedule = []
     
-    for execStartTime in range(int(taskInfo[EXECUTION_TIME])):
+    for execStartTime in range(int(task_info[SYSTEMTIME])):
         # Create a list of tasks that are available to be executed at this time based on their deadlines
-        for task in taskList:
-            if execStartTime == task[TASK_DEADLINE] * (execStartTime // task[TASK_DEADLINE]): # // = division rounded down or is equal to. For example 7 // 3 = 2
+        for task in tasks:
+            if execStartTime == task[DEADLINE] * (execStartTime // task[DEADLINE]): # // = division rounded down or is equal to. For example 7 // 3 = 2
                 availableTasks.append(task.copy())
         # Find the deadlines
-        deadlines = [(task[TASK_DEADLINE]) for task in availableTasks]
+        deadlines = [(task[DEADLINE]) for task in availableTasks]
         if (deadlines == []):
         # If deadline is empty, then nothing is ran aka IDLE
-            schedule.append(["IDLE", "IDLE", taskInfo[IDLE_POWER]])
+            schedule.append(["IDLE", "IDLE", task_info[IDLE]])
         else:
             # Find the highest priority deadline
-            earliestDeadlineTask = min(availableTasks, key=lambda x: x[TASK_DEADLINE])
-            schedule.append([earliestDeadlineTask[TASK_NAME], earliestDeadlineTask[TASK_FREQUENCY], taskInfo[earliestDeadlineTask[TASK_ACTIVE_POWER]]])
-            earliestDeadlineTask[TASK_EXEC_TIME] = earliestDeadlineTask[TASK_EXEC_TIME] - 1
+            earliestDeadlineTask = min(availableTasks, key=lambda x: x[DEADLINE])
+            schedule.append([earliestDeadlineTask[TASKNAME], earliestDeadlineTask[FREQ], task_info[earliestDeadlineTask[CPU_POWER]]])
+            earliestDeadlineTask[RUNTIME] = earliestDeadlineTask[RUNTIME] - 1
         
             # Delete tasks that are done
-            if (earliestDeadlineTask[TASK_EXEC_TIME] <= 0):
+            if (earliestDeadlineTask[RUNTIME] <= 0):
                 availableTasks.remove(earliestDeadlineTask)
     return scheduleAsArray(schedule)
 
-
-def calcEDF(taskInfo, taskList):
+def calcEDF(task_info, tasks):
     utilization = 0
-    for task in taskList:
-        utilization += task[TASK_EXEC_TIME] / task[DEADLINE]
+    for task in tasks:
+        utilization += task[RUNTIME] / task[DEADLINE]
     if (utilization >= 1):
         return ""
 
     schedule = []
     availableTasks = []
 
-    for execStartTime in range(int(taskInfo[EXECUTION_TIME])):
-        # Create a list of tasks that are available to be executed at this time based on their deadlines
-        for task in taskList:
-            if execStartTime == task[TASK_DEADLINE] * (execStartTime // task[TASK_DEADLINE]):   
+    for execStartTime in range(int(task_info[SYSTEMTIME])):
+        #list of tasks ready at this time based of deadline
+        for task in tasks:
+            if execStartTime == task[DEADLINE] * (execStartTime // task[DEADLINE]):   
                 availableTasks.append(task.copy())
                 
         if not availableTasks:
-            # If no tasks are available, then nothing is ran aka IDLE
-            schedule.append(["IDLE", "IDLE", taskInfo[IDLE_POWER]])
+            #no tasks availabe so wait
+            schedule.append(["IDLE", "IDLE", task_info[IDLE]])
         else:
-            # Find the highest priority deadline
-            earliestDeadlineTask = min(availableTasks, key=lambda x: x[TASK_DEADLINE])
-            schedule.append([earliestDeadlineTask[TASK_NAME], earliestDeadlineTask[TASK_FREQUENCY], taskInfo[earliestDeadlineTask[TASK_ACTIVE_POWER]]])
-            earliestDeadlineTask[TASK_EXEC_TIME] = earliestDeadlineTask[TASK_EXEC_TIME] - 1
+            #find earliest deadline
+            earliestDeadlineTask = min(availableTasks, key=lambda x: x[DEADLINE])
+            schedule.append([earliestDeadlineTask[TASKNAME], earliestDeadlineTask[FREQ], task_info[earliestDeadlineTask[CPU_POWER]]])
+            earliestDeadlineTask[RUNTIME] = earliestDeadlineTask[RUNTIME] - 1
 
-            # Delete tasks that are done
-            if earliestDeadlineTask[TASK_EXEC_TIME] <= 0:
+            #delete when finished
+            if earliestDeadlineTask[RUNTIME] <= 0:
                 availableTasks.remove(earliestDeadlineTask)
 
     return scheduleAsArray(schedule)
 
+def scheduleEE(task_info, tasks, scheduler):
 
-def scheduleEE(taskInfo, taskList, scheduler):
-    taskLog = []
-    taskWCETs = []
-    lastTask = ""
+    taskList = [[task[TASKNAME], task[DEADLINE], task[INDEX_WCET1188], CPU_POWER_1188, "1188"] for task in tasks]
+    taskWCET = [INDEX_WCET1188] * len(tasks)
+    
+    runningTask = calcRM(task_info, taskList) if scheduler == "RM" else calcEDF(task_info, taskList)
+    lastTask = runningTask
 
-    # if scheduler == "RM":
-        
-    # elif scheduler == "EDF":
-        
-    # else:
-    #     print("Invalid scheduler choice.")
-    #     return ""
-    if scheduler == "RM":
-        for task in taskList:
-            taskLog.append([task[NAME_OF_TASK], task[DEADLINE], task[WCET_1188], CPU_POWER_1188, "1188"])
-            taskWCETs.append(WCET_1188)
-            
-        runningTask = calcRM(taskInfo, taskLog)
+    count = 0
+    while runningTask != "":
+        count += 1
         lastTask = runningTask
+        idleLocation = 0
+        idleDuration = 0
 
-        count = 0
-        while (runningTask != ""):
-            count += 1
-            lastTask = runningTask
-            idleLocation = 0
-            idleDuration = 0
+        runningTask = runningTask.split('\n')
 
-            runningTask = runningTask.split('\n')
-            for i in range(len(runningTask)):
-                if (runningTask[i].find("IDLE") != -1): # Checking for IDLE 
-                    if (int(runningTask[i].split(' ')[3]) > idleDuration): # If is IDLE, then compare the IDLE durations
-                        if (runningTask[i-1].split(' ')[2] == "384"): # Use lowest CPU_FREQ
-                            continue
-                        idleLocation = i - 1
-                        idleDuration = int(runningTask[i].split(' ')[3])
-            
-            for i in range(len(taskLog)):
-                if (runningTask[idleLocation].split(' ')[1] == taskLog[i][TASK_NAME]): 
-                    taskWCETs[i] = taskWCETs[i] + 1
-                    taskLog[i][TASK_EXEC_TIME] = taskList[i][taskWCETs[i]]
-                    taskLog[i][TASK_ACTIVE_POWER] = taskWCETs[i]
-                    taskLog[i][TASK_FREQUENCY] = CPU_FREQ[taskWCETs[i]]
-                    break
-            runningTask = calcRM(taskInfo, taskLog)
-        return lastTask
-    elif scheduler == "EDF":
-        for task in taskList:
-            taskLog.append([task[NAME_OF_TASK], task[DEADLINE], task[WCET_1188], CPU_POWER_1188, "1188"])
-            taskWCETs.append(WCET_1188)
-            
-        runningTask = calcEDF(taskInfo, taskLog)
-        lastTask = runningTask
+        #find where idles are and duration of idle
+        for i in range(len(runningTask)):
+            if "IDLE" in runningTask[i]:
+                if int(runningTask[i].split(' ')[3]) > idleDuration:
+                    if runningTask[i-1].split(' ')[2] == "384":
+                        continue
+                    idleLocation = i - 1
+                    idleDuration = int(runningTask[i].split(' ')[3])
 
-        count = 0
-        while (runningTask != ""):
-            count += 1
-            lastTask = runningTask
-            idleLocation = 0
-            idleDuration = 0
+        #during idle time fix task with the highest energy
+        for i in range(len(taskList)):
+            if runningTask[idleLocation].split(' ')[1] == taskList[i][TASKNAME]:
+                taskWCET[i] += 1
+                taskList[i][RUNTIME] = tasks[i][taskWCET[i]]
+                taskList[i][CPU_POWER] = taskWCET[i]
+                taskList[i][FREQ] = CPU_FREQ[taskWCET[i]]
+                break
 
-            runningTask = runningTask.split('\n')
-            for i in range(len(runningTask)):
-                if (runningTask[i].find("IDLE") != -1): # Checking for IDLE 
-                    if (int(runningTask[i].split(' ')[3]) > idleDuration): # If is IDLE, then compare the IDLE durations
-                        if (runningTask[i-1].split(' ')[2] == "384"): # Use lowest CPU_FREQ
-                            continue
-                        idleLocation = i - 1
-                        idleDuration = int(runningTask[i].split(' ')[3])
-            
-            for i in range(len(taskLog)):
-                if (runningTask[idleLocation].split(' ')[1] == taskLog[i][TASK_NAME]): 
-                    taskWCETs[i] = taskWCETs[i] + 1
-                    taskLog[i][TASK_EXEC_TIME] = taskList[i][taskWCETs[i]]
-                    taskLog[i][TASK_ACTIVE_POWER] = taskWCETs[i]
-                    taskLog[i][TASK_FREQUENCY] = CPU_FREQ[taskWCETs[i]]
-                    break
-            runningTask = calcEDF(taskInfo, taskLog)
-        return lastTask
+        #run scheduling with updated task info
+        runningTask = calcRM(task_info, taskList) if scheduler == "RM" else calcEDF(task_info, taskList)
+
+    return lastTask
+
+def main():
+    if len(sys.argv) < 3:
+        print("your_program.py input.txt <RM or EDF> EE\n")
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    scheduler_choice = sys.argv[2]
+    output_file = input_file.split('.')[0]
+
+    if "EE" in sys.argv:
+        output_file += f"output_{scheduler_choice}_EE"
+        task_info, task_list = read_file(input_file)
+        output = scheduleEE(task_info, task_list, scheduler_choice)
+    elif scheduler_choice in {"RM", "EDF"}:
+        output_file += f"output_{scheduler_choice}"
+        task_info, task_list = read_file(input_file)
+        output = schedule(task_info, task_list, scheduler_choice)
     else:
-        print("invalid schedule choice")
+        print("Invalid scheduler choice.")
+        sys.exit(1)
 
+    with open(output_file + ".txt", 'w') as outFile:
+        outFile.write("schedule not possible with given input" if output == "" else output)
 
 if __name__ == "__main__":
-    (taskInfo, taskList) = accessFile(sys.argv[1])
-    outputFile = sys.argv[1].split('.')[0]
-    scheduler_choice = sys.argv[2]
-    if ("RM" in sys.argv and "EE" in sys.argv):
-        output = scheduleEE(taskInfo, taskList, scheduler_choice)
-        outputFile += "output_RM_EE"
-    elif ("EDF" in sys.argv and "EE" in sys.argv):
-        output = scheduleEE(taskInfo, taskList, scheduler_choice)
-        outputFile += "output_EDF_EE"
-    elif ("RM" in sys.argv):
-        output = schedule(taskInfo, taskList, scheduler_choice)
-        outputFile += "output_RM"
-    elif ("EDF" in sys.argv):
-        output = schedule(taskInfo, taskList, scheduler_choice)
-        outputFile += "output_EDF"
-    else:
-        print("The command lines should be in this format: your_program <input_file_name> <EDF or RM> [EE] \n")
-        exit()
-        
-    with open(outputFile + ".txt", 'w') as outFile:
-        if (output == ""):
-            outFile.write("no possible schedule for input")
-        else:
-            outFile.write(output)
+    main() 
