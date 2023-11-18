@@ -7,7 +7,7 @@ https://www.python.org/downloads/
 ## To run the program:
 1. Change the directory into the PA3 folder with:
 ``````
-cd PA3.py
+cd PA3
 ``````
 2. In the terminal use the command lines in this format.
 ``````
