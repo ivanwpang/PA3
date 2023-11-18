@@ -199,7 +199,7 @@ def scheduleEE(task_info, tasks, scheduler):
         for i in range(len(runningTask)):
             if "IDLE" in runningTask[i]:
                 if int(runningTask[i].split(' ')[3]) > idleDuration:
-                    if runningTask[i-1].split(' ')[2] == "384":
+                    if runningTask[i-1].split(' ')[2] == "384": # 384 is the IDLE freq
                         continue
                     idleLocation = i - 1
                     idleDuration = int(runningTask[i].split(' ')[3])
